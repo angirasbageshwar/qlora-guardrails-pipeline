@@ -1,0 +1,12 @@
+# Vercel deploy manifest for the guardrail gateway only (entrypoint: api/index.py).
+# The GPU training stack lives in requirements.txt and is excluded via .vercelignore.
+[project]
+name = "qlora-guardrail-gateway"
+version = "1.0.0"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115.0",
+    "httpx>=0.28.0",
+    "pydantic>=2.9",
+    "python-dotenv>=1.0.1",
+]

@@ -1,0 +1,18 @@
+# Only the guardrail gateway deploys to Vercel; the GPU training/serving stack stays out.
+/requirements.txt
+/data
+/configs
+/outputs
+/ray_serve
+/scripts
+/.github
+/src/serve
+/src/train_qlora.py
+/src/merge_adapter.py
+/src/evaluate.py
+/docker-compose.serve.yml
+/Dockerfile.gateway
+.env
+*.md
+*.pdf
+__pycache__

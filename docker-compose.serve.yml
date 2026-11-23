@@ -1,0 +1,37 @@
+# Production serving stack on one GPU EC2 instance (g5.xlarge or better).
+# Requires: NVIDIA driver + nvidia-container-toolkit on the host.
+services:
+  vllm:
+    image: vllm/vllm-openai:v0.6.6
+    command: >
+      --model /models/merged
+      --served-model-name domain-llm
+      --max-model-len 4096
+      --gpu-memory-utilization 0.90
+      --enable-prefix-caching
+    volumes:
+      - ./outputs/merged:/models/merged:ro
+    ports:
+      - "8000:8000"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    environment:
+      - VLLM_BASE_URL=http://vllm:8000
+      - BLOCK_ON_PII=false
+      - USE_NEMO=false
+    ports:
+      - "9000:9000"
+    depends_on:
+      - vllm
+    restart: unless-stopped

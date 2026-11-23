@@ -1,0 +1,61 @@
+# Local CPU demo stack: runs on any laptop, no GPU and no trained model needed.
+# A small instruct model (Qwen2.5-0.5B GGUF on llama.cpp) stands in for the
+# fine-tuned vLLM model; the guardrail gateway + chat UI are the same as prod.
+#
+#   docker compose -f docker-compose.local.yml up -d --build
+#   open http://localhost:9000
+#
+# Bigger model (needs more RAM, slower on CPU):
+#   LLM_HF_REPO=Qwen/Qwen2.5-1.5B-Instruct-GGUF:Q4_K_M docker compose -f docker-compose.local.yml up -d
+services:
+  llm:
+    image: ghcr.io/ggml-org/llama.cpp:server-b11977
+    command: >
+      -hf ${LLM_HF_REPO:-Qwen/Qwen2.5-0.5B-Instruct-GGUF:Q4_K_M}
+      --alias domain-llm
+      --ctx-size 4096
+      --parallel 1
+    environment:
+      - LLAMA_CACHE=/models
+    volumes:
+      - llm-models:/models          # model download is cached across restarts
+    healthcheck:                    # first start downloads the model, so be patient
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+    restart: unless-stopped
+    # no published port: the model is only reachable through the gateway
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    environment:
+      - VLLM_BASE_URL=http://llm:8080
+      - BLOCK_ON_PII=false
+      - USE_NEMO=false
+      - MAX_TOKENS=512            # keeps one reply from hogging a CPU model
+      - RATE_LIMIT_PER_MIN=20     # per visitor IP
+    ports:
+      - "9000:9000"
+    depends_on:
+      llm:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # Public HTTPS URL for the gateway (Cloudflare quick tunnel, no account needed).
+  # Opt-in: docker compose -f docker-compose.local.yml --profile public up -d
+  # or scripts/go_live.sh, which also points the Vercel deployment at it.
+  tunnel:
+    image: cloudflare/cloudflared:2025.11.1
+    # http2 (TCP) is steadier than the default QUIC (UDP) on home networks
+    command: tunnel --no-autoupdate --protocol http2 --url http://gateway:9000
+    depends_on:
+      - gateway
+    restart: unless-stopped
+    profiles: ["public"]
+
+volumes:
+  llm-models:

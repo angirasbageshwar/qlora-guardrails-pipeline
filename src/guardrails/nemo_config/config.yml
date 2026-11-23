@@ -1,0 +1,17 @@
+# NeMo Guardrails config — optional semantic rail on top of the regex layer.
+# Enable with USE_NEMO=true after `pip install nemoguardrails==0.11.0`.
+models:
+  - type: main
+    engine: openai                # vLLM speaks the OpenAI protocol
+    model: domain-llm
+    parameters:
+      base_url: "http://localhost:8000/v1"
+      api_key: "not-needed"
+
+rails:
+  input:
+    flows:
+      - self check input
+  output:
+    flows:
+      - self check output
